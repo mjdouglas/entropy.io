@@ -2,7 +2,6 @@
 // Loads pre-computed tables for instant initialization
 
 import Cube from 'cubejs';
-import 'cubejs/lib/solve';
 
 let initialized = false;
 
