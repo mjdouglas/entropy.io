@@ -4,7 +4,7 @@ Interactive Three.js experience that continuously scrambles and solves a GLTF Ru
 
 ## Requirements
 
-- Node.js 18 or newer (matches the minimum supported version for Vite/Vitest)
+- Node.js 20 or newer
 
 ## High-Level Architecture
 

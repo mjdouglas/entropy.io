@@ -5,9 +5,10 @@
   "private": true,
   "description": "Interactive Rubik's Cube solver using Three.js and Kociemba algorithm",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
+    "preinstall": "node scripts/check-node-version.cjs",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
