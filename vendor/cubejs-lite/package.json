@@ -1,0 +1,7 @@
+{
+  "name": "cubejs",
+  "version": "1.3.2-local",
+  "description": "Local vendored cubejs solver runtime (without npm transitive dependency)",
+  "main": "index.js",
+  "license": "MIT"
+}

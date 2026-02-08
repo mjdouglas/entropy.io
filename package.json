@@ -35,7 +35,10 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "cubejs": "^1.3.2",
+    "cubejs": "file:vendor/cubejs-lite",
     "three": "^0.160.1"
+  },
+  "overrides": {
+    "qs": "^6.14.1"
   }
 }
