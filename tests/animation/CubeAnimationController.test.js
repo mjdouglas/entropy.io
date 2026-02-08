@@ -15,9 +15,11 @@ vi.mock('../../js/solver/generateScramble.js', () => ({
 }));
 
 vi.mock('../../js/animation/MoveExecutor.js', () => ({
-  MoveExecutor: vi.fn().mockImplementation(() => ({
-    executeMove: vi.fn().mockResolvedValue(true),
-  })),
+  MoveExecutor: vi.fn(function MoveExecutorMock() {
+    return {
+      executeMove: vi.fn().mockResolvedValue(true),
+    };
+  }),
 }));
 
 import { MoveExecutor } from '../../js/animation/MoveExecutor.js';
@@ -321,7 +323,9 @@ describe('CubeAnimationController', () => {
           .mockResolvedValueOnce(false) // U fails
           .mockResolvedValueOnce(true), // R' succeeds
       };
-      MoveExecutor.mockImplementation(() => executorMock);
+      MoveExecutor.mockImplementation(function MoveExecutorMockImpl() {
+        return executorMock;
+      });
 
       controller = new CubeAnimationController(mockGltfModel, mockSolver);
       controller.firstCycle = false;
