@@ -20,10 +20,10 @@ vi.mock('../../js/animation/MoveExecutor.js', () => ({
   })),
 }));
 
+import { MoveExecutor } from '../../js/animation/MoveExecutor.js';
 // Import mocks after vi.mock declarations
 import { identifyPiecesAndBuildFaceMap } from '../../js/scene/identifyPieces.js';
 import { generateScramble } from '../../js/solver/generateScramble.js';
-import { MoveExecutor } from '../../js/animation/MoveExecutor.js';
 
 describe('CubeAnimationController', () => {
   let mockGltfModel;
@@ -148,7 +148,7 @@ describe('CubeAnimationController', () => {
       controller = new CubeAnimationController(mockGltfModel, mockSolver);
       const initialScramble = ['F', 'B', 'L'];
 
-      const loopPromise = controller.startContinuousLoop(initialScramble);
+      controller.startContinuousLoop(initialScramble);
 
       // Let the first cycle start
       await vi.advanceTimersByTimeAsync(0);
@@ -252,7 +252,9 @@ describe('CubeAnimationController', () => {
     });
 
     it('handles errors gracefully and continues loop', async () => {
-      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
       mockSolver.solve.mockRejectedValueOnce(new Error('Solver error'));
 
       controller = new CubeAnimationController(mockGltfModel, mockSolver);
@@ -313,8 +315,9 @@ describe('CubeAnimationController', () => {
 
     it('tracks successfully executed scramble moves', async () => {
       const executorMock = {
-        executeMove: vi.fn()
-          .mockResolvedValueOnce(true)  // R succeeds
+        executeMove: vi
+          .fn()
+          .mockResolvedValueOnce(true) // R succeeds
           .mockResolvedValueOnce(false) // U fails
           .mockResolvedValueOnce(true), // R' succeeds
       };

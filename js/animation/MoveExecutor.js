@@ -10,6 +10,7 @@ export class MoveExecutor {
     this.cubeRoot = cubeRoot;
     this.sceneRoot = cubeRoot.parent;
     this.AXES = AXES;
+    this.activeAnimation = null;
   }
 
   parseMove(move) {
@@ -76,7 +77,21 @@ export class MoveExecutor {
         return;
       }
 
+      const animationState = {
+        canceled: false,
+        finishImmediately: () => {
+          if (animationState.canceled) return;
+          animationState.canceled = true;
+          pivot.quaternion.copy(targetQuat).normalize();
+          resolve();
+        },
+      };
+      this.activeAnimation = animationState;
+
       const animate = (currentTime) => {
+        if (animationState.canceled) {
+          return;
+        }
         const elapsed = currentTime - startTime;
         const t = Math.min(elapsed / duration, 1);
         const eased = this.easeInOutCubic(t);
@@ -86,6 +101,7 @@ export class MoveExecutor {
         if (t < 1) {
           requestAnimationFrame(animate);
         } else {
+          this.activeAnimation = null;
           pivot.quaternion.copy(targetQuat).normalize();
           resolve();
         }
@@ -93,6 +109,14 @@ export class MoveExecutor {
 
       requestAnimationFrame(animate);
     });
+  }
+
+  cancelCurrentMove() {
+    if (!this.activeAnimation) {
+      return;
+    }
+    this.activeAnimation.finishImmediately();
+    this.activeAnimation = null;
   }
 
   easeInOutCubic(t) {

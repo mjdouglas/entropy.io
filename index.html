@@ -196,6 +196,130 @@
         #contact-btn span {
             display: inline;
         }
+        #mode-toggle {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            display: inline-flex;
+            background: rgba(16, 16, 16, 0.9);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 999px;
+            padding: 4px;
+            z-index: 120;
+            gap: 4px;
+        }
+        .mode-btn {
+            border: none;
+            border-radius: 999px;
+            background: transparent;
+            color: rgba(255,255,255,0.45);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.6rem;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            padding: 8px 12px;
+            cursor: pointer;
+            transition: background 0.2s ease, color 0.2s ease;
+        }
+        .mode-btn.active {
+            background: rgba(255,255,255,0.15);
+            color: rgba(255,255,255,0.95);
+        }
+        #manual-controls {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            width: min(340px, calc(100vw - 32px));
+            background: rgba(14, 14, 14, 0.94);
+            border: 1px solid rgba(255,255,255,0.14);
+            border-radius: 12px;
+            padding: 14px;
+            z-index: 130;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transform: translateY(8px);
+            transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+        }
+        #manual-controls.visible {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+            transform: translateY(0);
+        }
+        .manual-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .manual-row:last-child {
+            margin-bottom: 0;
+        }
+        #manual-status {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.52rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: rgba(255,255,255,0.52);
+            margin-bottom: 10px;
+            min-height: 0.9rem;
+        }
+        .face-btn,
+        .modifier-btn,
+        .action-btn,
+        #apply-notation {
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.03);
+            color: rgba(255,255,255,0.82);
+            border-radius: 8px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.64rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 9px 10px;
+            cursor: pointer;
+            transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+        }
+        .face-btn:hover,
+        .modifier-btn:hover,
+        .action-btn:hover,
+        #apply-notation:hover {
+            background: rgba(255,255,255,0.09);
+            border-color: rgba(255,255,255,0.3);
+            color: rgba(255,255,255,0.98);
+        }
+        .face-btn,
+        .modifier-btn {
+            flex: 1;
+        }
+        .modifier-btn.active {
+            background: rgba(93, 149, 255, 0.28);
+            border-color: rgba(138, 178, 255, 0.7);
+            color: rgba(235, 243, 255, 1);
+        }
+        .action-btn {
+            flex: 1;
+        }
+        #notation-input {
+            flex: 1;
+            min-width: 0;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 8px;
+            color: rgba(255,255,255,0.92);
+            font-family: 'Orbitron', sans-serif;
+            font-size: 0.62rem;
+            letter-spacing: 0.11em;
+            text-transform: uppercase;
+            padding: 8px 10px;
+        }
+        #notation-input::placeholder {
+            color: rgba(255,255,255,0.34);
+        }
+        #apply-notation {
+            width: 100px;
+            flex-shrink: 0;
+        }
         @media (max-width: 768px) {
             #contact-btn {
                 padding: 8px;
@@ -205,6 +329,32 @@
             }
             #contact-btn span {
                 display: none;
+            }
+            #mode-toggle {
+                left: 50%;
+                transform: translateX(-50%);
+                top: 16px;
+            }
+            #manual-controls {
+                right: 0;
+                left: 0;
+                bottom: 0;
+                width: auto;
+                border-radius: 16px 16px 0 0;
+                border-left: none;
+                border-right: none;
+                border-bottom: none;
+                padding: 14px 12px calc(12px + env(safe-area-inset-bottom));
+            }
+            .face-btn,
+            .modifier-btn,
+            .action-btn,
+            #apply-notation {
+                min-height: 44px;
+                font-size: 0.7rem;
+            }
+            #notation-input {
+                min-height: 44px;
             }
         }
         #contact-overlay {
@@ -347,6 +497,38 @@
             <path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
         </svg>
     </button>
+    <div id="mode-toggle" role="group" aria-label="Control mode">
+        <button id="mode-auto" class="mode-btn active" type="button">Auto</button>
+        <button id="mode-manual" class="mode-btn" type="button">Manual</button>
+    </div>
+    <div id="manual-controls" aria-live="polite">
+        <div id="manual-status">Auto mode</div>
+        <div class="manual-row">
+            <button class="face-btn" type="button" data-face="R">R</button>
+            <button class="face-btn" type="button" data-face="L">L</button>
+            <button class="face-btn" type="button" data-face="U">U</button>
+            <button class="face-btn" type="button" data-face="D">D</button>
+            <button class="face-btn" type="button" data-face="F">F</button>
+            <button class="face-btn" type="button" data-face="B">B</button>
+        </div>
+        <div class="manual-row">
+            <button class="modifier-btn" type="button" data-modifier="'">Prime (')</button>
+            <button class="modifier-btn" type="button" data-modifier="2">Double (2)</button>
+        </div>
+        <div class="manual-row">
+            <input id="notation-input" type="text" placeholder="R U R' U'" autocomplete="off" />
+            <button id="apply-notation" type="button">Apply</button>
+        </div>
+        <div class="manual-row">
+            <button id="manual-undo" class="action-btn" type="button">Undo</button>
+            <button id="manual-redo" class="action-btn" type="button">Redo</button>
+            <button id="manual-scramble" class="action-btn" type="button">Scramble</button>
+        </div>
+        <div class="manual-row">
+            <button id="manual-solve" class="action-btn" type="button">Solve</button>
+            <button id="manual-reset" class="action-btn" type="button">Reset</button>
+        </div>
+    </div>
     <button id="prev-palette" class="nav-arrow">&#8249;</button>
     <button id="next-palette" class="nav-arrow">&#8250;</button>
 

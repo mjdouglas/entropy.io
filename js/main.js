@@ -17,6 +17,10 @@ import { applySolvedPoseFromAnimation } from './scene/applySolvedPose.js';
 import { generateScramble } from './solver/generateScramble.js';
 import { KociembaSolver } from './solver/KociembaSolver.js';
 
+const FACES = ['R', 'L', 'U', 'D', 'F', 'B'];
+const MANUAL_MOVE_DURATION = 240;
+const MANUAL_FAST_DURATION = 130;
+
 // Track current palette for navigation
 const hadInitialHash = window.location.hash.length > 1;
 function getInitialPaletteIndex() {
@@ -31,11 +35,374 @@ function getInitialPaletteIndex() {
 }
 let currentPaletteIndex = getInitialPaletteIndex();
 let currentModel = null;
+let cubeController = null;
+
+let mode = 'auto';
+let moveHistory = [];
+let manualUndoStack = [];
+let manualRedoStack = [];
+let selectedModifier = '';
+let actionQueue = Promise.resolve();
+let actionEpoch = 0;
+let modeSwitchToken = 0;
+
+const modeAutoBtn = document.getElementById('mode-auto');
+const modeManualBtn = document.getElementById('mode-manual');
+const manualControls = document.getElementById('manual-controls');
+const manualStatus = document.getElementById('manual-status');
+const notationInput = document.getElementById('notation-input');
 
 function updateUrlHash(paletteInfo) {
   const slug = titleToSlug(paletteInfo.title);
   history.replaceState(null, '', `#${slug}`);
 }
+
+function setStatus(text) {
+  if (manualStatus) {
+    manualStatus.textContent = text;
+  }
+}
+
+function invertMove(move) {
+  if (move.endsWith('2')) {
+    return move;
+  }
+  if (move.endsWith("'")) {
+    return move[0];
+  }
+  return `${move[0]}'`;
+}
+
+function setModeUi(nextMode) {
+  mode = nextMode;
+  modeAutoBtn.classList.toggle('active', nextMode === 'auto');
+  modeManualBtn.classList.toggle('active', nextMode === 'manual');
+  manualControls.classList.toggle('visible', nextMode === 'manual');
+}
+
+async function executeMoveRaw(move, duration) {
+  if (!cubeController) {
+    return false;
+  }
+  return cubeController.executor.executeMove(move, duration);
+}
+
+async function executeMoveTracked(move, duration) {
+  const success = await executeMoveRaw(move, duration);
+  if (success) {
+    moveHistory.push(move);
+  }
+  return success;
+}
+
+function clearManualStacks() {
+  manualUndoStack = [];
+  manualRedoStack = [];
+}
+
+async function switchToManualMode() {
+  if (!cubeController || mode === 'manual') {
+    setModeUi('manual');
+    return;
+  }
+  cubeController.stopImmediately();
+  await cubeController.waitForStop();
+  setModeUi('manual');
+  setStatus('Manual mode');
+}
+
+function invalidateQueuedActions() {
+  actionEpoch += 1;
+  actionQueue = Promise.resolve();
+}
+
+function isCurrentModeSwitch(token) {
+  return token === modeSwitchToken;
+}
+
+async function transitionToAutoMode(token = modeSwitchToken) {
+  if (!cubeController || mode === 'auto') {
+    setModeUi('auto');
+    return;
+  }
+
+  // Hide manual UI immediately on mode switch.
+  setModeUi('auto');
+  setStatus('Returning to auto mode');
+
+  // Solve back to a known solved state before resuming automatic loop.
+  if (moveHistory.length > 0) {
+    const solution = await globalSolver.solve(moveHistory);
+    if (!isCurrentModeSwitch(token) || mode !== 'auto') {
+      return;
+    }
+    for (const move of solution) {
+      if (!isCurrentModeSwitch(token) || mode !== 'auto') {
+        return;
+      }
+      await executeMoveRaw(move, MANUAL_MOVE_DURATION);
+    }
+  }
+
+  if (!isCurrentModeSwitch(token) || mode !== 'auto') {
+    return;
+  }
+  moveHistory = [];
+  clearManualStacks();
+  cubeController.firstCycle = false;
+  cubeController.startContinuousLoop();
+}
+
+function queueAction(label, action) {
+  const queuedEpoch = actionEpoch;
+  actionQueue = actionQueue
+    .then(async () => {
+      if (queuedEpoch !== actionEpoch) {
+        return;
+      }
+      setStatus(label);
+      await action();
+    })
+    .catch((error) => {
+      if (queuedEpoch !== actionEpoch) {
+        return;
+      }
+      console.error('Manual action failed:', error);
+      setStatus('Action failed');
+    });
+
+  return actionQueue;
+}
+
+function parseAlgorithm(input) {
+  const compact = input.toUpperCase().replace(/\s+/g, '');
+  if (!compact) {
+    return [];
+  }
+
+  const tokens = compact.match(/[RLUDFB](?:2|')?/g) || [];
+  if (tokens.join('') !== compact) {
+    return null;
+  }
+
+  return tokens;
+}
+
+function renderModifierState() {
+  document.querySelectorAll('.modifier-btn').forEach((btn) => {
+    btn.classList.remove('active');
+  });
+
+  if (selectedModifier) {
+    const target = document.querySelector(
+      `.modifier-btn[data-modifier="${selectedModifier}"]`,
+    );
+    if (target) {
+      target.classList.add('active');
+    }
+  }
+}
+
+function consumeSelectedModifier() {
+  const modifier = selectedModifier;
+  selectedModifier = '';
+  renderModifierState();
+  return modifier;
+}
+
+function queueUserMove(move) {
+  queueAction(`Move ${move}`, async () => {
+    if (mode === 'auto') {
+      await switchToManualMode();
+    }
+
+    const success = await executeMoveTracked(move, MANUAL_MOVE_DURATION);
+    if (!success) {
+      return;
+    }
+
+    manualUndoStack.push(move);
+    manualRedoStack = [];
+    setStatus(`Move ${move}`);
+  });
+}
+
+function bindManualControls() {
+  modeAutoBtn.addEventListener('click', () => {
+    invalidateQueuedActions();
+    const token = ++modeSwitchToken;
+    void transitionToAutoMode(token);
+  });
+
+  modeManualBtn.addEventListener('click', () => {
+    invalidateQueuedActions();
+    ++modeSwitchToken;
+    void switchToManualMode();
+  });
+
+  document.querySelectorAll('.face-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const face = btn.dataset.face;
+      const modifier = consumeSelectedModifier();
+      queueUserMove(`${face}${modifier}`);
+    });
+  });
+
+  document.querySelectorAll('.modifier-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const modifier = btn.dataset.modifier;
+      selectedModifier = selectedModifier === modifier ? '' : modifier;
+      renderModifierState();
+      if (!selectedModifier) {
+        setStatus('Modifier cleared');
+      } else if (selectedModifier === "'") {
+        setStatus('Prime modifier armed');
+      } else if (selectedModifier === '2') {
+        setStatus('Double-turn modifier armed');
+      }
+    });
+  });
+
+  document.getElementById('apply-notation').addEventListener('click', () => {
+    queueAction('Applying algorithm', async () => {
+      if (mode === 'auto') {
+        await switchToManualMode();
+      }
+
+      const moves = parseAlgorithm(notationInput.value);
+      if (moves === null) {
+        setStatus('Invalid notation');
+        return;
+      }
+
+      for (const move of moves) {
+        const success = await executeMoveTracked(move, MANUAL_MOVE_DURATION);
+        if (!success) {
+          break;
+        }
+        manualUndoStack.push(move);
+      }
+
+      if (moves.length > 0) {
+        manualRedoStack = [];
+      }
+      setStatus(
+        moves.length > 0 ? `Applied ${moves.length} moves` : 'No moves',
+      );
+    });
+  });
+
+  notationInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('apply-notation').click();
+    }
+  });
+
+  document.getElementById('manual-undo').addEventListener('click', () => {
+    queueAction('Undo', async () => {
+      if (mode === 'auto') {
+        await switchToManualMode();
+      }
+      if (manualUndoStack.length === 0) {
+        setStatus('Nothing to undo');
+        return;
+      }
+
+      const move = manualUndoStack.pop();
+      const inverse = invertMove(move);
+      await executeMoveRaw(inverse, MANUAL_MOVE_DURATION);
+      moveHistory.pop();
+      manualRedoStack.push(move);
+      setStatus(`Undo ${move}`);
+    });
+  });
+
+  document.getElementById('manual-redo').addEventListener('click', () => {
+    queueAction('Redo', async () => {
+      if (mode === 'auto') {
+        await switchToManualMode();
+      }
+      if (manualRedoStack.length === 0) {
+        setStatus('Nothing to redo');
+        return;
+      }
+
+      const move = manualRedoStack.pop();
+      const success = await executeMoveTracked(move, MANUAL_MOVE_DURATION);
+      if (!success) {
+        return;
+      }
+      manualUndoStack.push(move);
+      setStatus(`Redo ${move}`);
+    });
+  });
+
+  document.getElementById('manual-scramble').addEventListener('click', () => {
+    queueAction('Scrambling', async () => {
+      if (mode === 'auto') {
+        await switchToManualMode();
+      }
+
+      const scramble = generateScramble(25);
+      for (const move of scramble) {
+        await executeMoveTracked(move, MANUAL_FAST_DURATION);
+      }
+      clearManualStacks();
+      setStatus('Scrambled');
+    });
+  });
+
+  document.getElementById('manual-solve').addEventListener('click', () => {
+    queueAction('Solving', async () => {
+      if (mode === 'auto') {
+        await switchToManualMode();
+      }
+
+      if (moveHistory.length === 0) {
+        setStatus('Already solved');
+        return;
+      }
+
+      const solution = await globalSolver.solve(moveHistory);
+      for (const move of solution) {
+        await executeMoveRaw(move, MANUAL_MOVE_DURATION);
+      }
+      moveHistory = [];
+      clearManualStacks();
+      setStatus(
+        solution.length > 0 ? `Solved in ${solution.length} moves` : 'Solved',
+      );
+    });
+  });
+
+  document.getElementById('manual-reset').addEventListener('click', () => {
+    queueAction('Resetting', async () => {
+      if (mode === 'auto') {
+        await switchToManualMode();
+      }
+
+      if (moveHistory.length === 0) {
+        setStatus('Already solved');
+        return;
+      }
+
+      const rewind = [...moveHistory].reverse().map(invertMove);
+      for (const move of rewind) {
+        await executeMoveRaw(move, MANUAL_FAST_DURATION);
+      }
+      moveHistory = [];
+      clearManualStacks();
+      setStatus('Reset to solved');
+    });
+  });
+
+  renderModifierState();
+  setModeUi('auto');
+  setStatus('Auto mode');
+}
+
+bindManualControls();
 
 // Create solver instance (initialization deferred until after cube renders)
 const globalSolver = new KociembaSolver();
@@ -78,9 +445,9 @@ composer.addPass(new RenderPass(scene, camera));
 
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.3, // strength - glow intensity
-  0.4, // radius - how far glow spreads
-  0.0, // threshold - no cutoff, all colors bloom
+  0.3,
+  0.4,
+  0.0,
 );
 const baseBloomStrength = 0.3;
 const solvedBloomStrength = 0.45;
@@ -98,8 +465,7 @@ controls.target.set(0, -0.4, 0);
 controls.update();
 
 // Lighting
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.35);
-scene.add(ambientLight);
+scene.add(new THREE.AmbientLight(0xffffff, 0.35));
 
 const directionalLight1 = new THREE.DirectionalLight(0xffffff, 1.1);
 directionalLight1.position.set(4, 9, 3);
@@ -124,31 +490,24 @@ loader.load(
   (gltf) => {
     const model = gltf.scene;
 
-    // Use embedded animation to move cube into solved pose
     applySolvedPoseFromAnimation(model, gltf.animations);
 
-    // Center the model
     const box = new THREE.Box3().setFromObject(model);
     const center = box.getCenter(new THREE.Vector3());
     model.position.sub(center);
 
-    // Scale if needed
     const size = box.getSize(new THREE.Vector3());
     const maxDim = Math.max(size.x, size.y, size.z);
-    const scale = 3 / maxDim;
-    model.scale.multiplyScalar(scale);
+    model.scale.multiplyScalar(3 / maxDim);
 
-    // Store model reference for palette switching
     currentModel = model;
 
-    // Load palette texture before adding model to scene
     const textureLoader = new THREE.TextureLoader();
     const paletteInfo = getPaletteInfo(paletteNames[currentPaletteIndex]);
     textureLoader.load(paletteInfo.texturePath, (paletteTexture) => {
       paletteTexture.colorSpace = THREE.SRGBColorSpace;
       paletteTexture.flipY = false;
 
-      // Apply palette and emissive glow to cube materials
       model.traverse((child) => {
         if (child.isMesh && child.material) {
           const mat = child.material;
@@ -162,10 +521,8 @@ loader.load(
         }
       });
 
-      // Now add model to scene after palette is applied
       scene.add(model);
 
-      // Update UI with palette info
       audioPlayer.init();
       audioPlayer.loadTrack(paletteInfo);
       document.getElementById('palette-info').classList.add('visible');
@@ -173,34 +530,33 @@ loader.load(
         updateUrlHash(paletteInfo);
       }
 
-      // Show theme toast on initial load
       const toast = document.getElementById('theme-toast');
       toast.textContent = paletteInfo.title;
       toast.classList.add('visible');
 
-      // Update all matrices after adding to scene and transforming
       scene.updateMatrixWorld(true);
 
-      // Create controller immediately (piece identification is relatively fast)
-      const cubeController = new CubeAnimationController(model, globalSolver, {
+      cubeController = new CubeAnimationController(model, globalSolver, {
         onSolved: () => {
           targetBloomStrength = solvedBloomStrength;
+          moveHistory = [];
         },
         onScrambling: () => {
           targetBloomStrength = baseBloomStrength;
         },
+        onMove: (move) => {
+          moveHistory.push(move);
+        },
       });
 
-      // Execute initial scramble instantly so cube appears scrambled from the start
       const scramble = generateScramble(25);
       console.log('Initial scramble:', scramble.join(' '));
       (async () => {
         for (const move of scramble) {
-          await cubeController.executor.executeMove(move, 0); // duration=0 for instant
+          await executeMoveTracked(move, 0);
         }
         console.log("Rubik's Cube loaded successfully!");
 
-        // Now initialize solver after a delay to let the scrambled cube render
         setTimeout(() => {
           const solverStartTime = performance.now();
           globalSolver
@@ -211,14 +567,13 @@ loader.load(
                 `Kociemba solver initialized (${solverElapsed.toFixed(0)}ms total)`,
               );
 
-              // Start animation loop
               cubeController.startContinuousLoop(scramble);
               console.log('Animation controller started');
             })
             .catch((err) => {
               console.error('Solver initialization failed:', err);
             });
-        }, 100); // 100ms delay = ~6 frames at 60fps
+        }, 100);
       })();
     });
   },
@@ -243,15 +598,11 @@ window.addEventListener('resize', () => {
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-
-  // Smoothly animate bloom strength towards target
   bloomPass.strength += (targetBloomStrength - bloomPass.strength) * 0.05;
-
   composer.render();
 }
 animate();
 
-// Palette switching
 function switchPalette(direction) {
   if (!currentModel) return;
 
@@ -274,21 +625,17 @@ function switchPalette(direction) {
       }
     });
 
-    // Show theme toast briefly
     const toast = document.getElementById('theme-toast');
     toast.textContent = paletteInfo.title;
     toast.classList.remove('visible');
-    void toast.offsetHeight; // Force reflow to restart animation
+    void toast.offsetHeight;
     toast.classList.add('visible');
 
     updateUrlHash(paletteInfo);
-
-    // Load new audio track
     audioPlayer.loadTrack(paletteInfo);
   });
 }
 
-// Button controls
 document
   .getElementById('prev-palette')
   .addEventListener('click', () => switchPalette(-1));
@@ -296,13 +643,62 @@ document
   .getElementById('next-palette')
   .addEventListener('click', () => switchPalette(1));
 
-// Keyboard controls
-window.addEventListener('keydown', (e) => {
-  if (e.key === 'ArrowLeft') switchPalette(-1);
-  if (e.key === 'ArrowRight') switchPalette(1);
+window.addEventListener('keydown', (event) => {
+  const activeTag = document.activeElement?.tagName;
+  if (
+    activeTag === 'INPUT' ||
+    activeTag === 'TEXTAREA' ||
+    document.activeElement?.isContentEditable
+  ) {
+    return;
+  }
+
+  if (event.key === 'ArrowLeft') {
+    switchPalette(-1);
+    return;
+  }
+  if (event.key === 'ArrowRight') {
+    switchPalette(1);
+    return;
+  }
+
+  if (!cubeController) {
+    return;
+  }
+
+  if (event.key === '2') {
+    selectedModifier = selectedModifier === '2' ? '' : '2';
+    renderModifierState();
+    setStatus(
+      selectedModifier === '2'
+        ? 'Double-turn modifier armed'
+        : 'Modifier cleared',
+    );
+    event.preventDefault();
+    return;
+  }
+
+  if (event.key === "'") {
+    selectedModifier = selectedModifier === "'" ? '' : "'";
+    renderModifierState();
+    setStatus(
+      selectedModifier === "'" ? 'Prime modifier armed' : 'Modifier cleared',
+    );
+    event.preventDefault();
+    return;
+  }
+
+  const face = event.key.toUpperCase();
+  if (!FACES.includes(face)) {
+    return;
+  }
+
+  const modifier = selectedModifier || (event.shiftKey ? "'" : '');
+  if (selectedModifier) consumeSelectedModifier();
+  event.preventDefault();
+  queueUserMove(`${face}${modifier}`);
 });
 
-// Return focus to main window when mouse moves over canvas
 renderer.domElement.addEventListener('mousemove', () => {
   document.body.focus();
 });

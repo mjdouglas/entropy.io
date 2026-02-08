@@ -27,19 +27,17 @@ describe('colorPalettes', () => {
 
     it('all Spotify URLs are valid format', () => {
       for (const [name, palette] of Object.entries(palettes)) {
-        expect(
-          palette.url,
-          `${name} has invalid Spotify URL`,
-        ).toMatch(/^https:\/\/open\.spotify\.com\/track\/[a-zA-Z0-9]+$/);
+        expect(palette.url, `${name} has invalid Spotify URL`).toMatch(
+          /^https:\/\/open\.spotify\.com\/track\/[a-zA-Z0-9]+$/,
+        );
       }
     });
 
     it('all audio files follow naming convention', () => {
       for (const [name, palette] of Object.entries(palettes)) {
-        expect(
-          palette.audioFile,
-          `${name} has invalid audioFile path`,
-        ).toBe(`audio/${name}.mp3`);
+        expect(palette.audioFile, `${name} has invalid audioFile path`).toBe(
+          `audio/${name}.mp3`,
+        );
       }
     });
   });
@@ -146,7 +144,9 @@ describe('colorPalettes', () => {
       expect(info.title).toBe('Old School');
       expect(info.song).toBe('Take On Me');
       expect(info.artist).toBe('a-ha');
-      expect(info.url).toBe('https://open.spotify.com/track/2WfaOiMkCvy7F5fcp2zZ8L');
+      expect(info.url).toBe(
+        'https://open.spotify.com/track/2WfaOiMkCvy7F5fcp2zZ8L',
+      );
       expect(info.audioFile).toBe('audio/classic.mp3');
       expect(info.texturePath).toBe('textures/Rubik_baseColor_classic.png');
     });
