@@ -133,7 +133,7 @@
             font-size: 2rem;
             cursor: pointer;
             padding: 20px;
-            transition: color 0.2s;
+            transition: color 0.2s, transform 0.08s ease;
             z-index: 100;
         }
         .nav-arrow:hover {
@@ -219,7 +219,7 @@
             text-transform: uppercase;
             padding: 8px 12px;
             cursor: pointer;
-            transition: background 0.2s ease, color 0.2s ease;
+            transition: background 0.2s ease, color 0.2s ease, transform 0.08s ease;
         }
         .mode-btn.active {
             background: rgba(255,255,255,0.15);
@@ -278,7 +278,7 @@
             text-transform: uppercase;
             padding: 9px 10px;
             cursor: pointer;
-            transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease;
+            transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.08s ease;
         }
         .face-btn:hover,
         .modifier-btn:hover,
@@ -299,6 +299,26 @@
         }
         .action-btn {
             flex: 1;
+        }
+        .mode-btn:active,
+        .mode-btn.is-pressed,
+        .face-btn:active,
+        .face-btn.is-pressed,
+        .modifier-btn:active,
+        .modifier-btn.is-pressed,
+        .action-btn:active,
+        .action-btn.is-pressed,
+        #apply-notation:active,
+        #apply-notation.is-pressed {
+            background: rgba(255,255,255,0.16);
+            border-color: rgba(255,255,255,0.48);
+            color: rgba(255,255,255,1);
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.16), 0 0 14px rgba(255,255,255,0.14);
+        }
+        .nav-arrow:active,
+        .nav-arrow.is-pressed {
+            color: rgba(255,255,255,0.92);
+            text-shadow: 0 0 14px rgba(255,255,255,0.45);
         }
         #notation-input {
             flex: 1;

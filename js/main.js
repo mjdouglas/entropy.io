@@ -51,6 +51,15 @@ const modeManualBtn = document.getElementById('mode-manual');
 const manualControls = document.getElementById('manual-controls');
 const manualStatus = document.getElementById('manual-status');
 const notationInput = document.getElementById('notation-input');
+const prevPaletteBtn = document.getElementById('prev-palette');
+const nextPaletteBtn = document.getElementById('next-palette');
+const primeModifierBtn = document.querySelector(
+  '.modifier-btn[data-modifier="\'"]',
+);
+const doubleModifierBtn = document.querySelector(
+  '.modifier-btn[data-modifier="2"]',
+);
+const pressTimers = new WeakMap();
 
 function updateUrlHash(paletteInfo) {
   const slug = titleToSlug(paletteInfo.title);
@@ -61,6 +70,24 @@ function setStatus(text) {
   if (manualStatus) {
     manualStatus.textContent = text;
   }
+}
+
+function flashButtonPress(button) {
+  if (!button) {
+    return;
+  }
+
+  const priorTimer = pressTimers.get(button);
+  if (priorTimer) {
+    clearTimeout(priorTimer);
+  }
+
+  button.classList.add('is-pressed');
+  const timeoutId = setTimeout(() => {
+    button.classList.remove('is-pressed');
+    pressTimers.delete(button);
+  }, 120);
+  pressTimers.set(button, timeoutId);
 }
 
 function invertMove(move) {
@@ -654,10 +681,12 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (event.key === 'ArrowLeft') {
+    flashButtonPress(prevPaletteBtn);
     switchPalette(-1);
     return;
   }
   if (event.key === 'ArrowRight') {
+    flashButtonPress(nextPaletteBtn);
     switchPalette(1);
     return;
   }
@@ -667,6 +696,7 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (event.key === '2') {
+    flashButtonPress(doubleModifierBtn);
     selectedModifier = selectedModifier === '2' ? '' : '2';
     renderModifierState();
     setStatus(
@@ -679,6 +709,7 @@ window.addEventListener('keydown', (event) => {
   }
 
   if (event.key === "'") {
+    flashButtonPress(primeModifierBtn);
     selectedModifier = selectedModifier === "'" ? '' : "'";
     renderModifierState();
     setStatus(
@@ -694,6 +725,13 @@ window.addEventListener('keydown', (event) => {
   }
 
   const modifier = selectedModifier || (event.shiftKey ? "'" : '');
+  if (modifier === "'") {
+    flashButtonPress(primeModifierBtn);
+  }
+  if (modifier === '2') {
+    flashButtonPress(doubleModifierBtn);
+  }
+  flashButtonPress(document.querySelector(`.face-btn[data-face="${face}"]`));
   if (selectedModifier) consumeSelectedModifier();
   event.preventDefault();
   queueUserMove(`${face}${modifier}`);
