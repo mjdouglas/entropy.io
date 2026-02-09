@@ -211,7 +211,7 @@
         #mobile-mode-toggle {
             position: fixed;
             top: auto;
-            left: 24px;
+            left: calc(env(safe-area-inset-left) + 12px);
             bottom: calc(env(safe-area-inset-bottom) + var(--mobile-mode-anchor, 24px));
             display: none;
             align-items: center;
@@ -222,7 +222,7 @@
             z-index: 120;
             background: rgba(24, 32, 44, 0.92);
             border: 1px solid rgba(120, 170, 255, 0.5);
-            border-radius: 10px;
+            border-radius: 999px;
             color: rgba(214, 231, 255, 0.95);
             box-shadow: 0 0 0 1px rgba(70, 125, 220, 0.16), 0 8px 18px rgba(0, 0, 0, 0.35);
             transition: bottom 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.08s ease;
@@ -368,6 +368,28 @@
             flex-shrink: 0;
         }
         @media (max-width: 768px) {
+            #audio-player {
+                width: min(264px, calc(100vw - 110px));
+                padding: 10px 12px;
+                gap: 10px;
+                border-radius: 10px;
+            }
+            .player-btn {
+                width: 28px;
+                height: 28px;
+            }
+            #track-song {
+                font-size: 0.62rem;
+                letter-spacing: 0.08em;
+            }
+            #track-artist {
+                font-size: 0.5rem;
+                letter-spacing: 0.06em;
+            }
+            #spotify-link {
+                width: 18px;
+                height: 18px;
+            }
             #contact-btn {
                 padding: 8px;
             }
@@ -382,7 +404,6 @@
             }
             #mobile-mode-toggle {
                 display: inline-flex;
-                left: 12px;
             }
             #manual-controls {
                 right: 12px;

@@ -16,10 +16,12 @@ import {
 import { applySolvedPoseFromAnimation } from './scene/applySolvedPose.js';
 import { generateScramble } from './solver/generateScramble.js';
 import { KociembaSolver } from './solver/KociembaSolver.js';
+import * as CubeModule from 'cubejs';
 
 const FACES = ['R', 'L', 'U', 'D', 'F', 'B'];
 const MANUAL_MOVE_DURATION = 240;
 const MANUAL_FAST_DURATION = 130;
+const CubeState = CubeModule.default ?? CubeModule;
 
 // Track current palette for navigation
 const hadInitialHash = window.location.hash.length > 1;
@@ -45,6 +47,7 @@ let selectedModifier = '';
 let actionQueue = Promise.resolve();
 let actionEpoch = 0;
 let modeSwitchToken = 0;
+let cubeState = new CubeState();
 
 const modeAutoBtn = document.getElementById('mode-auto');
 const modeManualBtn = document.getElementById('mode-manual');
@@ -163,7 +166,9 @@ async function executeMoveRaw(move, duration) {
 async function executeMoveTracked(move, duration) {
   const success = await executeMoveRaw(move, duration);
   if (success) {
+    applyMoveToCubeState(move);
     moveHistory.push(move);
+    handleMoveHistoryChange();
   }
   return success;
 }
@@ -171,6 +176,19 @@ async function executeMoveTracked(move, duration) {
 function clearManualStacks() {
   manualUndoStack = [];
   manualRedoStack = [];
+}
+
+function syncBloomToSolvedState() {
+  targetBloomStrength =
+    cubeState?.isSolved?.() ? solvedBloomStrength : baseBloomStrength;
+}
+
+function applyMoveToCubeState(move) {
+  cubeState.move(move);
+}
+
+function handleMoveHistoryChange() {
+  syncBloomToSolvedState();
 }
 
 async function switchToManualMode() {
@@ -213,15 +231,20 @@ async function transitionToAutoMode(token = modeSwitchToken) {
       if (!isCurrentModeSwitch(token) || mode !== 'auto') {
         return;
       }
-      await executeMoveRaw(move, MANUAL_MOVE_DURATION);
+      const success = await executeMoveRaw(move, MANUAL_MOVE_DURATION);
+      if (success) {
+        applyMoveToCubeState(move);
+      }
     }
   }
 
   if (!isCurrentModeSwitch(token) || mode !== 'auto') {
     return;
   }
+  cubeState = new CubeState();
   moveHistory = [];
   clearManualStacks();
+  handleMoveHistoryChange();
   cubeController.firstCycle = false;
   cubeController.startContinuousLoop();
 }
@@ -397,8 +420,14 @@ function bindManualControls() {
 
       const move = manualUndoStack.pop();
       const inverse = invertMove(move);
-      await executeMoveRaw(inverse, MANUAL_MOVE_DURATION);
+      const success = await executeMoveRaw(inverse, MANUAL_MOVE_DURATION);
+      if (!success) {
+        setStatus('Undo failed');
+        return;
+      }
+      applyMoveToCubeState(inverse);
       moveHistory.pop();
+      handleMoveHistoryChange();
       manualRedoStack.push(move);
       setStatus(`Undo ${move}`);
     });
@@ -452,10 +481,15 @@ function bindManualControls() {
 
       const solution = await globalSolver.solve(moveHistory);
       for (const move of solution) {
-        await executeMoveRaw(move, MANUAL_MOVE_DURATION);
+        const success = await executeMoveRaw(move, MANUAL_MOVE_DURATION);
+        if (success) {
+          applyMoveToCubeState(move);
+        }
       }
+      cubeState = new CubeState();
       moveHistory = [];
       clearManualStacks();
+      handleMoveHistoryChange();
       setStatus(
         solution.length > 0 ? `Solved in ${solution.length} moves` : 'Solved',
       );
@@ -475,10 +509,15 @@ function bindManualControls() {
 
       const rewind = [...moveHistory].reverse().map(invertMove);
       for (const move of rewind) {
-        await executeMoveRaw(move, MANUAL_FAST_DURATION);
+        const success = await executeMoveRaw(move, MANUAL_FAST_DURATION);
+        if (success) {
+          applyMoveToCubeState(move);
+        }
       }
+      cubeState = new CubeState();
       moveHistory = [];
       clearManualStacks();
+      handleMoveHistoryChange();
       setStatus('Reset to solved');
     });
   });
@@ -626,14 +665,17 @@ loader.load(
 
       cubeController = new CubeAnimationController(model, globalSolver, {
         onSolved: () => {
-          targetBloomStrength = solvedBloomStrength;
+          cubeState = new CubeState();
           moveHistory = [];
+          handleMoveHistoryChange();
         },
         onScrambling: () => {
           targetBloomStrength = baseBloomStrength;
         },
         onMove: (move) => {
+          applyMoveToCubeState(move);
           moveHistory.push(move);
+          handleMoveHistoryChange();
         },
       });
 
