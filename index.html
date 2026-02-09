@@ -246,6 +246,7 @@
             text-transform: uppercase;
             padding: 8px 12px;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
             transition: background 0.2s ease, color 0.2s ease, transform 0.08s ease;
         }
         .mode-btn.active {
@@ -305,15 +306,25 @@
             text-transform: uppercase;
             padding: 9px 10px;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
             transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.08s ease;
         }
-        .face-btn:hover,
-        .modifier-btn:hover,
-        .action-btn:hover,
-        #apply-notation:hover {
-            background: rgba(255,255,255,0.09);
-            border-color: rgba(255,255,255,0.3);
-            color: rgba(255,255,255,0.98);
+        .mode-btn:focus,
+        .face-btn:focus,
+        .modifier-btn:focus,
+        .action-btn:focus,
+        #apply-notation:focus {
+            outline: none;
+        }
+        @media (hover: hover) and (pointer: fine) {
+            .face-btn:hover,
+            .modifier-btn:hover,
+            .action-btn:hover,
+            #apply-notation:hover {
+                background: rgba(255,255,255,0.09);
+                border-color: rgba(255,255,255,0.3);
+                color: rgba(255,255,255,0.98);
+            }
         }
         .face-btn,
         .modifier-btn {
