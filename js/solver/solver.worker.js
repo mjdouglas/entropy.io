@@ -1,7 +1,9 @@
 // Web Worker for Rubik's cube solver
 // Loads pre-computed tables for instant initialization
 
-import Cube from 'cubejs';
+import * as CubeModule from 'cubejs';
+
+const Cube = CubeModule.default ?? CubeModule;
 
 let initialized = false;
 

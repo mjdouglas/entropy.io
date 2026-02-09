@@ -208,6 +208,33 @@
             z-index: 120;
             gap: 4px;
         }
+        #mobile-mode-toggle {
+            position: fixed;
+            top: auto;
+            left: 24px;
+            bottom: calc(env(safe-area-inset-bottom) + var(--mobile-mode-anchor, 24px));
+            display: none;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            padding: 0;
+            z-index: 120;
+            background: rgba(24, 32, 44, 0.92);
+            border: 1px solid rgba(120, 170, 255, 0.5);
+            border-radius: 10px;
+            color: rgba(214, 231, 255, 0.95);
+            box-shadow: 0 0 0 1px rgba(70, 125, 220, 0.16), 0 8px 18px rgba(0, 0, 0, 0.35);
+            transition: bottom 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.08s ease;
+        }
+        #mobile-mode-toggle.active {
+            background: rgba(78, 128, 220, 0.32);
+            border-color: rgba(160, 195, 255, 0.85);
+            color: rgba(245, 250, 255, 1);
+        }
+        body.manual-mode #mobile-mode-toggle {
+            bottom: calc(env(safe-area-inset-bottom) + var(--mobile-controls-offset, 0px) + 18px);
+        }
         .mode-btn {
             border: none;
             border-radius: 999px;
@@ -353,18 +380,59 @@
             #mode-toggle {
                 display: none;
             }
+            #mobile-mode-toggle {
+                display: inline-flex;
+                left: 12px;
+            }
             #manual-controls {
+                right: 12px;
+                left: 12px;
+                bottom: 12px;
+                width: auto;
+                border-radius: 10px;
+                padding: 10px;
+            }
+            #manual-status,
+            .manual-row[data-mobile="hide"] {
                 display: none;
+            }
+            .manual-row {
+                margin-bottom: 6px;
+            }
+            .manual-row:last-child {
+                margin-bottom: 0;
+            }
+            .manual-row.face-row {
+                flex-wrap: wrap;
+            }
+            .manual-row.face-row .face-btn {
+                flex: 1 1 calc(33.333% - 6px);
+                min-width: 0;
+                padding: 8px 6px;
+                font-size: 0.62rem;
+                letter-spacing: 0.08em;
             }
             .face-btn,
             .modifier-btn,
             .action-btn,
             #apply-notation {
-                min-height: 44px;
-                font-size: 0.7rem;
+                min-height: 36px;
+                font-size: 0.62rem;
+                padding: 8px 7px;
             }
-            #notation-input {
-                min-height: 44px;
+            .manual-row.action-row {
+                display: grid;
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 6px;
+            }
+            .manual-row.action-row .action-btn {
+                width: 100%;
+            }
+            .manual-row.action-row[data-cols="2"] {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+            .manual-row.action-row[data-mobile="hide"] {
+                display: none;
             }
         }
         #contact-overlay {
@@ -511,9 +579,10 @@
         <button id="mode-auto" class="mode-btn active" type="button">Auto</button>
         <button id="mode-manual" class="mode-btn" type="button">Manual</button>
     </div>
+    <button id="mobile-mode-toggle" class="mode-btn" type="button" aria-label="Switch to manual mode">A</button>
     <div id="manual-controls" aria-live="polite">
         <div id="manual-status">Auto mode</div>
-        <div class="manual-row">
+        <div class="manual-row face-row">
             <button class="face-btn" type="button" data-face="R">R</button>
             <button class="face-btn" type="button" data-face="L">L</button>
             <button class="face-btn" type="button" data-face="U">U</button>
@@ -521,20 +590,20 @@
             <button class="face-btn" type="button" data-face="F">F</button>
             <button class="face-btn" type="button" data-face="B">B</button>
         </div>
-        <div class="manual-row">
+        <div class="manual-row modifier-row">
             <button class="modifier-btn" type="button" data-modifier="'">Prime (')</button>
             <button class="modifier-btn" type="button" data-modifier="2">Double (2)</button>
         </div>
-        <div class="manual-row">
+        <div class="manual-row" data-mobile="hide">
             <input id="notation-input" type="text" placeholder="R U R' U'" autocomplete="off" />
             <button id="apply-notation" type="button">Apply</button>
         </div>
-        <div class="manual-row">
+        <div class="manual-row action-row" data-mobile="hide">
             <button id="manual-undo" class="action-btn" type="button">Undo</button>
             <button id="manual-redo" class="action-btn" type="button">Redo</button>
             <button id="manual-scramble" class="action-btn" type="button">Scramble</button>
         </div>
-        <div class="manual-row">
+        <div class="manual-row action-row" data-cols="2" data-mobile="hide">
             <button id="manual-solve" class="action-btn" type="button">Solve</button>
             <button id="manual-reset" class="action-btn" type="button">Reset</button>
         </div>

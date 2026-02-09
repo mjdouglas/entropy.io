@@ -48,9 +48,11 @@ let modeSwitchToken = 0;
 
 const modeAutoBtn = document.getElementById('mode-auto');
 const modeManualBtn = document.getElementById('mode-manual');
+const mobileModeToggleBtn = document.getElementById('mobile-mode-toggle');
 const manualControls = document.getElementById('manual-controls');
 const manualStatus = document.getElementById('manual-status');
 const notationInput = document.getElementById('notation-input');
+const audioPlayerElement = document.getElementById('audio-player');
 const prevPaletteBtn = document.getElementById('prev-palette');
 const nextPaletteBtn = document.getElementById('next-palette');
 const primeModifierBtn = document.querySelector(
@@ -60,6 +62,35 @@ const doubleModifierBtn = document.querySelector(
   '.modifier-btn[data-modifier="2"]',
 );
 const pressTimers = new WeakMap();
+
+function updateMobileModeToggleOffset() {
+  if (!document.body || !manualControls || !mobileModeToggleBtn) {
+    return;
+  }
+
+  if (window.innerWidth <= 768) {
+    if (audioPlayerElement) {
+      const playerRect = audioPlayerElement.getBoundingClientRect();
+      const toggleHeight = mobileModeToggleBtn.offsetHeight || 38;
+      const viewportBottomGap = Math.max(0, window.innerHeight - playerRect.bottom);
+      const centeredBottom = Math.round(
+        viewportBottomGap + (playerRect.height - toggleHeight) / 2,
+      );
+      document.body.style.setProperty(
+        '--mobile-mode-anchor',
+        `${Math.max(12, centeredBottom)}px`,
+      );
+    }
+    document.body.style.setProperty(
+      '--mobile-controls-offset',
+      `${manualControls.offsetHeight + 12}px`,
+    );
+    return;
+  }
+
+  document.body.style.removeProperty('--mobile-mode-anchor');
+  document.body.style.removeProperty('--mobile-controls-offset');
+}
 
 function updateUrlHash(paletteInfo) {
   const slug = titleToSlug(paletteInfo.title);
@@ -102,9 +133,24 @@ function invertMove(move) {
 
 function setModeUi(nextMode) {
   mode = nextMode;
-  modeAutoBtn.classList.toggle('active', nextMode === 'auto');
-  modeManualBtn.classList.toggle('active', nextMode === 'manual');
-  manualControls.classList.toggle('visible', nextMode === 'manual');
+  modeAutoBtn?.classList.toggle('active', nextMode === 'auto');
+  modeManualBtn?.classList.toggle('active', nextMode === 'manual');
+  manualControls?.classList.toggle('visible', nextMode === 'manual');
+  document.body?.classList.toggle('manual-mode', nextMode === 'manual');
+  try {
+    updateMobileModeToggleOffset();
+  } catch (error) {
+    console.warn('Failed to update mobile mode toggle offset:', error);
+  }
+  if (mobileModeToggleBtn) {
+    const isAuto = nextMode === 'auto';
+    mobileModeToggleBtn.textContent = isAuto ? 'A' : 'M';
+    mobileModeToggleBtn.classList.toggle('active', !isAuto);
+    mobileModeToggleBtn.setAttribute(
+      'aria-label',
+      isAuto ? 'Switch to manual mode' : 'Switch to auto mode',
+    );
+  }
 }
 
 async function executeMoveRaw(move, duration) {
@@ -255,17 +301,30 @@ function queueUserMove(move) {
 }
 
 function bindManualControls() {
-  modeAutoBtn.addEventListener('click', () => {
+  modeAutoBtn?.addEventListener('click', () => {
     invalidateQueuedActions();
     const token = ++modeSwitchToken;
     void transitionToAutoMode(token);
   });
 
-  modeManualBtn.addEventListener('click', () => {
+  modeManualBtn?.addEventListener('click', () => {
     invalidateQueuedActions();
     ++modeSwitchToken;
     void switchToManualMode();
   });
+
+  if (mobileModeToggleBtn) {
+    mobileModeToggleBtn.addEventListener('click', () => {
+      invalidateQueuedActions();
+      if (mode === 'auto') {
+        ++modeSwitchToken;
+        void switchToManualMode();
+        return;
+      }
+      const token = ++modeSwitchToken;
+      void transitionToAutoMode(token);
+    });
+  }
 
   document.querySelectorAll('.face-btn').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -430,6 +489,8 @@ function bindManualControls() {
 }
 
 bindManualControls();
+window.addEventListener('resize', updateMobileModeToggleOffset);
+updateMobileModeToggleOffset();
 
 // Create solver instance (initialization deferred until after cube renders)
 const globalSolver = new KociembaSolver();
