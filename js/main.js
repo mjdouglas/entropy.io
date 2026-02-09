@@ -124,6 +124,23 @@ function flashButtonPress(button) {
   pressTimers.set(button, timeoutId);
 }
 
+function bindPointerPressFeedback(button) {
+  if (!button) {
+    return;
+  }
+
+  const clearPressed = () => {
+    button.classList.remove('is-pressed');
+  };
+
+  button.addEventListener('pointerdown', () => {
+    button.classList.add('is-pressed');
+  });
+  button.addEventListener('pointerup', clearPressed);
+  button.addEventListener('pointercancel', clearPressed);
+  button.addEventListener('pointerleave', clearPressed);
+}
+
 function invertMove(move) {
   if (move.endsWith('2')) {
     return move;
@@ -324,6 +341,12 @@ function queueUserMove(move) {
 }
 
 function bindManualControls() {
+  document
+    .querySelectorAll(
+      '.mode-btn, .face-btn, .modifier-btn, .action-btn, #apply-notation',
+    )
+    .forEach(bindPointerPressFeedback);
+
   modeAutoBtn?.addEventListener('click', () => {
     invalidateQueuedActions();
     const token = ++modeSwitchToken;
