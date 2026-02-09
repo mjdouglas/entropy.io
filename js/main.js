@@ -262,8 +262,10 @@ async function transitionToAutoMode(token = modeSwitchToken) {
   moveHistory = [];
   clearManualStacks();
   handleMoveHistoryChange();
-  cubeController.firstCycle = false;
-  cubeController.startContinuousLoop();
+  // Resume auto mode from solved state so users see the solved pause before
+  // the next scramble begins.
+  cubeController.firstCycle = true;
+  cubeController.startContinuousLoop([]);
 }
 
 function queueAction(label, action) {
@@ -346,6 +348,16 @@ function bindManualControls() {
       '.mode-btn, .face-btn, .modifier-btn, .action-btn, #apply-notation',
     )
     .forEach(bindPointerPressFeedback);
+
+  // Prevent mobile double-tap zoom gestures on control interactions.
+  const preventDoubleTapZoom = (event) => {
+    event.preventDefault();
+  };
+  manualControls?.addEventListener('dblclick', preventDoubleTapZoom);
+  mobileModeToggleBtn?.addEventListener('dblclick', preventDoubleTapZoom);
+  document
+    .getElementById('mute-btn')
+    ?.addEventListener('dblclick', preventDoubleTapZoom);
 
   modeAutoBtn?.addEventListener('click', () => {
     invalidateQueuedActions();

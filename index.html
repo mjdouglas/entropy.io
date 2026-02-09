@@ -53,6 +53,7 @@
             width: 32px;
             height: 32px;
             flex-shrink: 0;
+            touch-action: manipulation;
             transition: color 0.2s ease;
         }
         .player-btn:hover {
@@ -225,6 +226,7 @@
             border-radius: 999px;
             color: rgba(214, 231, 255, 0.95);
             box-shadow: 0 0 0 1px rgba(70, 125, 220, 0.16), 0 8px 18px rgba(0, 0, 0, 0.35);
+            touch-action: manipulation;
             transition: bottom 0.2s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.08s ease;
         }
         #mobile-mode-toggle.active {
@@ -267,6 +269,7 @@
             visibility: hidden;
             pointer-events: none;
             transform: translateY(8px);
+            touch-action: manipulation;
             transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
         }
         #manual-controls.visible {
