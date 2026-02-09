@@ -3,15 +3,10 @@
 class AudioPlayerController {
   constructor() {
     this.audio = null;
-    this.audioContext = null;
-    this.gainNode = null;
-    this.sourceNode = null;
-    this.currentBuffer = null;
     this.isMuted = true;
     this.hasUserInteracted = true;
     this.currentAudioFile = null;
     this.wasPlayingBeforeHidden = false;
-    this.loadToken = 0;
 
     // DOM elements (initialized in init())
     this.muteBtn = null;
@@ -33,23 +28,11 @@ class AudioPlayerController {
     this.spotifyLink = document.getElementById('spotify-link');
     this.playerContainer = document.getElementById('audio-player');
 
-    // Keep media element inert so iOS does not expose system media controls.
-    if (this.audio) {
-      this.audio.pause();
-      this.audio.src = '';
-      this.audio.load();
-    }
-
-    // Initialize Web Audio graph.
-    const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-    if (AudioContextCtor) {
-      this.audioContext = new AudioContextCtor();
-      this.gainNode = this.audioContext.createGain();
-      this.gainNode.gain.value = 0;
-      this.gainNode.connect(this.audioContext.destination);
-    }
+    // Enable looping
+    this.audio.loop = true;
 
     // Always start muted
+    this.audio.muted = true;
     this.updateMuteState();
 
     this.setupEventListeners();
@@ -60,13 +43,15 @@ class AudioPlayerController {
     this.muteBtn.addEventListener('click', () => this.toggleMute());
 
     // Audio events
+    this.audio.addEventListener('error', (e) => this.handleError(e));
+
     // Pause when page is hidden (e.g., screen off, tab switched)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
-        this.wasPlayingBeforeHidden = this.isPlaying();
-        this.stopPlayback();
+        this.wasPlayingBeforeHidden = !this.audio.paused;
+        this.audio.pause();
       } else if (this.wasPlayingBeforeHidden && this.hasUserInteracted) {
-        void this.startPlayback();
+        this.audio.play().catch(() => {});
       }
     });
   }
@@ -82,8 +67,7 @@ class AudioPlayerController {
     // Handle missing audio file
     if (!audioFile) {
       this.playerContainer.classList.add('no-audio');
-      this.stopPlayback();
-      this.currentBuffer = null;
+      this.audio.src = '';
       this.currentAudioFile = null;
       return;
     }
@@ -91,26 +75,27 @@ class AudioPlayerController {
     this.playerContainer.classList.remove('no-audio');
     this.currentAudioFile = audioFile;
 
-    // Load and decode the selected track.
-    const token = ++this.loadToken;
-    try {
-      const response = await fetch(audioFile, { cache: 'force-cache' });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch audio: ${response.status}`);
+    // Load new audio source
+    this.audio.src = audioFile;
+    this.audio.load();
+
+    // Attempt autoplay if user has interacted
+    if (this.hasUserInteracted) {
+      // For iOS: wait for canplay event before attempting play
+      const playWhenReady = () => {
+        this.audio.play().catch(() => {});
+        this.audio.removeEventListener('canplay', playWhenReady);
+      };
+
+      if (this.audio.readyState >= 3) {
+        // Already ready to play
+        this.audio.play().catch((err) => {
+          console.log('Autoplay prevented:', err.message);
+        });
+      } else {
+        // Wait for audio to be ready
+        this.audio.addEventListener('canplay', playWhenReady);
       }
-      const arrayBuffer = await response.arrayBuffer();
-      const decoded = await this.audioContext.decodeAudioData(arrayBuffer);
-      if (token !== this.loadToken) {
-        return;
-      }
-      this.currentBuffer = decoded;
-      this.stopPlayback();
-      if (!this.isMuted && this.hasUserInteracted) {
-        await this.startPlayback();
-      }
-    } catch (error) {
-      console.error('Audio decode error:', error);
-      this.playerContainer.classList.add('no-audio');
     }
   }
 
@@ -118,19 +103,12 @@ class AudioPlayerController {
     if (!this.currentAudioFile) return;
 
     this.isMuted = !this.isMuted;
-    if (this.gainNode) {
-      this.gainNode.gain.value = this.isMuted ? 0 : 1;
-    }
+    this.audio.muted = this.isMuted;
     this.updateMuteState();
 
-    // If unmuting and audio isn't playing, start it.
-    if (!this.isMuted && !this.isPlaying()) {
-      void this.startPlayback();
-    }
-
-    // Stop playback entirely when muted.
-    if (this.isMuted) {
-      this.stopPlayback();
+    // If unmuting and audio isn't playing, start it
+    if (!this.isMuted && this.audio.paused) {
+      this.audio.play().catch(() => {});
     }
   }
 
@@ -142,47 +120,6 @@ class AudioPlayerController {
   handleError(e) {
     console.error('Audio error:', e);
     this.playerContainer.classList.add('no-audio');
-  }
-
-  async startPlayback() {
-    if (!this.audioContext || !this.gainNode || !this.currentBuffer || this.isMuted) {
-      return;
-    }
-
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
-    }
-
-    this.stopPlayback();
-    const source = this.audioContext.createBufferSource();
-    source.buffer = this.currentBuffer;
-    source.loop = true;
-    source.connect(this.gainNode);
-    source.onended = () => {
-      if (this.sourceNode === source) {
-        this.sourceNode = null;
-      }
-    };
-    source.start(0);
-    this.sourceNode = source;
-  }
-
-  stopPlayback() {
-    if (!this.sourceNode) {
-      return;
-    }
-    this.sourceNode.onended = null;
-    try {
-      this.sourceNode.stop();
-    } catch {
-      // Ignore stop race conditions.
-    }
-    this.sourceNode.disconnect();
-    this.sourceNode = null;
-  }
-
-  isPlaying() {
-    return this.sourceNode != null;
   }
 }
 
